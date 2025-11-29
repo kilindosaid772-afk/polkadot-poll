@@ -2,9 +2,9 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { mockElections } from '@/lib/mock-data';
+import { useElections } from '@/hooks/useElections';
 import { Link } from 'react-router-dom';
-import { Calendar, Users, Vote, Clock, ChevronRight } from 'lucide-react';
+import { Calendar, Users, Vote, Clock, ChevronRight, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 const statusConfig = {
@@ -14,6 +14,8 @@ const statusConfig = {
 };
 
 export default function Elections() {
+  const { data: elections, isLoading } = useElections();
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -30,84 +32,93 @@ export default function Elections() {
               </p>
             </div>
 
-            <div className="grid gap-6">
-              {mockElections.map((election) => {
-                const config = statusConfig[election.status];
-                
-                return (
-                  <div 
-                    key={election.id}
-                    className="rounded-xl border border-border bg-card p-6 hover:shadow-lg transition-all duration-300"
-                  >
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                      <div className="flex-1 space-y-4">
-                        <div className="flex items-start gap-3">
-                          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <Vote className="h-6 w-6 text-primary" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-3 mb-1">
-                              <h2 className="text-xl font-semibold">{election.title}</h2>
-                              <Badge className={config.color}>{config.label}</Badge>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="grid gap-6">
+                {elections?.map((election) => {
+                  const config = statusConfig[election.status as keyof typeof statusConfig];
+                  
+                  return (
+                    <div 
+                      key={election.id}
+                      className="rounded-xl border border-border bg-card p-6 hover:shadow-lg transition-all duration-300"
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                        <div className="flex-1 space-y-4">
+                          <div className="flex items-start gap-3">
+                            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                              <Vote className="h-6 w-6 text-primary" />
                             </div>
-                            <p className="text-muted-foreground">{election.description}</p>
+                            <div>
+                              <div className="flex items-center gap-3 mb-1">
+                                <h2 className="text-xl font-semibold">{election.title}</h2>
+                                <Badge className={config?.color}>{config?.label}</Badge>
+                              </div>
+                              <p className="text-muted-foreground">{election.description}</p>
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="flex flex-wrap gap-6 text-sm">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Calendar className="h-4 w-4" />
-                            <span>
-                              {format(new Date(election.startDate), 'MMM d, yyyy')} - {format(new Date(election.endDate), 'MMM d, yyyy')}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Users className="h-4 w-4" />
-                            <span>{election.candidates.length} candidates</span>
-                          </div>
-                          {election.totalVotes > 0 && (
+                          <div className="flex flex-wrap gap-6 text-sm">
                             <div className="flex items-center gap-2 text-muted-foreground">
-                              <Vote className="h-4 w-4" />
-                              <span>{election.totalVotes.toLocaleString()} votes cast</span>
+                              <Calendar className="h-4 w-4" />
+                              <span>
+                                {format(new Date(election.start_date), 'MMM d, yyyy')} - {format(new Date(election.end_date), 'MMM d, yyyy')}
+                              </span>
                             </div>
-                          )}
+                            {election.total_votes > 0 && (
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Vote className="h-4 w-4" />
+                                <span>{election.total_votes.toLocaleString()} votes cast</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        {election.status === 'active' && (
-                          <Button asChild>
-                            <Link to={`/vote/${election.id}`}>
-                              Cast Your Vote
-                              <ChevronRight className="h-4 w-4 ml-1" />
-                            </Link>
-                          </Button>
-                        )}
-                        {election.status === 'completed' && (
-                          <Button variant="outline" asChild>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          {election.status === 'active' && (
+                            <Button asChild>
+                              <Link to={`/vote/${election.id}`}>
+                                Cast Your Vote
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                              </Link>
+                            </Button>
+                          )}
+                          {election.status === 'completed' && (
+                            <Button variant="outline" asChild>
+                              <Link to={`/results/${election.id}`}>
+                                View Results
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                              </Link>
+                            </Button>
+                          )}
+                          {election.status === 'upcoming' && (
+                            <Button variant="secondary" disabled>
+                              <Clock className="h-4 w-4 mr-2" />
+                              Coming Soon
+                            </Button>
+                          )}
+                          <Button variant="ghost" asChild>
                             <Link to={`/results/${election.id}`}>
-                              View Results
-                              <ChevronRight className="h-4 w-4 ml-1" />
+                              Learn More
                             </Link>
                           </Button>
-                        )}
-                        {election.status === 'upcoming' && (
-                          <Button variant="secondary" disabled>
-                            <Clock className="h-4 w-4 mr-2" />
-                            Coming Soon
-                          </Button>
-                        )}
-                        <Button variant="ghost" asChild>
-                          <Link to={`/election/${election.id}`}>
-                            Learn More
-                          </Link>
-                        </Button>
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
+
+                {(!elections || elections.length === 0) && (
+                  <div className="text-center py-20">
+                    <Vote className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                    <p className="text-muted-foreground">No elections available at the moment</p>
                   </div>
-                );
-              })}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </section>
       </main>

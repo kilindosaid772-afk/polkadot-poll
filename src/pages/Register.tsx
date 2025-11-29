@@ -44,7 +44,7 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      const success = await register({
+      const result = await register({
         name: formData.name,
         email: formData.email,
         nationalId: formData.nationalId,
@@ -52,11 +52,11 @@ export default function Register() {
         password: formData.password,
       });
       
-      if (success) {
-        setIsSuccess(true);
-        toast.success('Registration submitted successfully!');
+      if (result.error) {
+        toast.error(result.error);
       } else {
-        toast.error('Registration failed. Please try again.');
+        setIsSuccess(true);
+        toast.success('Registration successful!');
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.');
@@ -75,9 +75,9 @@ export default function Register() {
               <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-success/10 mb-6">
                 <CheckCircle className="h-10 w-10 text-success" />
               </div>
-              <h1 className="text-2xl font-bold mb-2">Registration Submitted!</h1>
+              <h1 className="text-2xl font-bold mb-2">Registration Successful!</h1>
               <p className="text-muted-foreground mb-6">
-                Your registration is pending approval. You will receive an SMS notification once your account is verified.
+                Your account has been created. You can now log in to your dashboard. Your voting privileges will be activated once an admin approves your registration.
               </p>
               <div className="space-y-3">
                 <Button className="w-full" onClick={() => navigate('/login')}>

@@ -1,9 +1,10 @@
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { StatsCard } from '@/components/shared/StatsCard';
-import { TransactionCard } from '@/components/shared/TransactionCard';
-import { mockDashboardStats, mockTransactions, mockElections, mockVoters } from '@/lib/mock-data';
-import { Users, UserCheck, Vote, Box, Activity, Calendar } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
+import { useDashboardStats, useVoters } from '@/hooks/useAdminData';
+import { useElections, useActiveElection } from '@/hooks/useElections';
+import { useBlockchainTransactions } from '@/hooks/useVotes';
+import { Users, UserCheck, Vote, Box, Activity, Calendar, Loader2 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 const votingData = [
   { time: '00:00', votes: 120 },
@@ -26,8 +27,23 @@ const dailyStats = [
 ];
 
 export default function AdminDashboard() {
-  const stats = mockDashboardStats;
-  const activeElection = mockElections.find(e => e.status === 'active');
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: activeElection, isLoading: electionLoading } = useActiveElection();
+  const { data: voters, isLoading: votersLoading } = useVoters();
+  const { data: transactions, isLoading: txLoading } = useBlockchainTransactions();
+
+  const isLoading = statsLoading || electionLoading || votersLoading || txLoading;
+  const pendingVoters = voters?.filter(v => !v.is_approved) || [];
+
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -42,38 +58,38 @@ export default function AdminDashboard() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <StatsCard
             title="Total Voters"
-            value={stats.totalVoters}
+            value={stats?.totalVoters || 0}
             icon={Users}
             variant="primary"
             trend={{ value: 12.5, isPositive: true }}
           />
           <StatsCard
             title="Approved"
-            value={stats.approvedVoters}
+            value={stats?.approvedVoters || 0}
             icon={UserCheck}
             variant="success"
           />
           <StatsCard
             title="Pending"
-            value={stats.pendingVoters}
+            value={stats?.pendingVoters || 0}
             icon={Users}
             variant="warning"
           />
           <StatsCard
             title="Active Elections"
-            value={stats.activeElections}
+            value={stats?.activeElections || 0}
             icon={Calendar}
             variant="accent"
           />
           <StatsCard
             title="Votes Cast"
-            value={stats.totalVotesCast}
+            value={stats?.totalVotesCast || 0}
             icon={Vote}
             variant="primary"
           />
           <StatsCard
             title="Block Height"
-            value={stats.blockchainHeight.toLocaleString()}
+            value={(stats?.blockchainHeight || 0).toLocaleString()}
             icon={Box}
             variant="default"
           />
@@ -152,20 +168,20 @@ export default function AdminDashboard() {
                   <p className="text-sm text-muted-foreground">{activeElection.candidates.length} candidates</p>
                 </div>
                 <div className="space-y-2">
-                  {activeElection.candidates.slice(0, 3).map((candidate, index) => (
+                  {activeElection.candidates.slice(0, 3).map((candidate) => (
                     <div key={candidate.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <img src={candidate.photo} alt={candidate.name} className="h-8 w-8 rounded-full object-cover" />
+                        <img src={candidate.photo || '/placeholder.svg'} alt={candidate.name} className="h-8 w-8 rounded-full object-cover" />
                         <span className="text-sm">{candidate.name}</span>
                       </div>
-                      <span className="text-sm font-medium">{candidate.voteCount.toLocaleString()}</span>
+                      <span className="text-sm font-medium">{candidate.vote_count.toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
                 <div className="pt-2 border-t border-border">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Total Votes</span>
-                    <span className="font-medium">{activeElection.totalVotes.toLocaleString()}</span>
+                    <span className="font-medium">{activeElection.total_votes.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -176,16 +192,16 @@ export default function AdminDashboard() {
           <div className="rounded-xl border border-border bg-card p-6">
             <h3 className="font-semibold mb-4">Pending Approvals</h3>
             <div className="space-y-3">
-              {mockVoters.filter(v => !v.isApproved).slice(0, 4).map((voter) => (
+              {pendingVoters.slice(0, 4).map((voter) => (
                 <div key={voter.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
                   <div>
                     <p className="text-sm font-medium">{voter.name}</p>
-                    <p className="text-xs text-muted-foreground">{voter.nationalId}</p>
+                    <p className="text-xs text-muted-foreground">{voter.national_id}</p>
                   </div>
                   <span className="px-2 py-1 rounded bg-warning/10 text-warning text-xs">Pending</span>
                 </div>
               ))}
-              {mockVoters.filter(v => !v.isApproved).length === 0 && (
+              {pendingVoters.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">No pending approvals</p>
               )}
             </div>
@@ -195,15 +211,18 @@ export default function AdminDashboard() {
           <div className="rounded-xl border border-border bg-card p-6">
             <h3 className="font-semibold mb-4">Recent Transactions</h3>
             <div className="space-y-3">
-              {mockTransactions.slice(0, 3).map((tx) => (
-                <div key={tx.hash} className="p-3 rounded-lg bg-muted/50">
+              {transactions?.slice(0, 3).map((tx) => (
+                <div key={tx.id} className="p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-primary capitalize">{tx.type.replace('_', ' ')}</span>
+                    <span className="text-xs text-primary capitalize">{tx.tx_type.replace('_', ' ')}</span>
                     <span className="text-xs text-muted-foreground">{tx.confirmations} conf</span>
                   </div>
-                  <p className="font-mono text-xs truncate">{tx.hash}</p>
+                  <p className="font-mono text-xs truncate">{tx.tx_hash}</p>
                 </div>
               ))}
+              {(!transactions || transactions.length === 0) && (
+                <p className="text-sm text-muted-foreground text-center py-4">No transactions yet</p>
+              )}
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,39 +6,40 @@ import { Label } from '@/components/ui/label';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useAuth } from '@/contexts/AuthContext';
-import { Vote, Shield, ArrowLeft, Loader2 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Vote, Loader2 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showOTP, setShowOTP] = useState(false);
   const [loginType, setLoginType] = useState<'voter' | 'admin'>('voter');
   
-  const { login, verifyOTP } = useAuth();
+  const { login, isAuthenticated, isAdmin, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      if (isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/voter');
+      }
+    }
+  }, [isAuthenticated, isAdmin, authLoading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const success = await login(email, password, loginType);
+      const { error } = await login(email, password);
       
-      if (success) {
-        if (loginType === 'admin') {
-          toast.success('Welcome back, Admin!');
-          navigate('/admin');
-        } else {
-          setShowOTP(true);
-          toast.info('OTP sent to your registered phone number');
-        }
+      if (error) {
+        toast.error(error);
       } else {
-        toast.error('Invalid credentials');
+        toast.success('Login successful!');
       }
     } catch (error) {
       toast.error('Login failed. Please try again.');
@@ -47,82 +48,10 @@ export default function Login() {
     }
   };
 
-  const handleOTPVerify = async () => {
-    setIsLoading(true);
-    try {
-      const success = await verifyOTP(otp);
-      if (success) {
-        toast.success('Login successful!');
-        navigate('/voter');
-      } else {
-        toast.error('Invalid OTP. Please try again.');
-      }
-    } catch (error) {
-      toast.error('Verification failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (showOTP) {
+  if (authLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center py-12 px-4">
-          <div className="w-full max-w-md">
-            <div className="rounded-2xl border border-border bg-card p-8 shadow-xl">
-              <button 
-                onClick={() => setShowOTP(false)}
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to login
-              </button>
-              
-              <div className="text-center mb-8">
-                <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-4">
-                  <Shield className="h-8 w-8 text-primary" />
-                </div>
-                <h1 className="text-2xl font-bold">Verify Your Identity</h1>
-                <p className="text-muted-foreground mt-2">
-                  Enter the 6-digit code sent to your phone
-                </p>
-              </div>
-
-              <div className="flex justify-center mb-8">
-                <InputOTP maxLength={6} value={otp} onChange={setOtp}>
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
-
-              <Button 
-                className="w-full" 
-                size="lg"
-                onClick={handleOTPVerify}
-                disabled={otp.length !== 6 || isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  'Verify & Login'
-                )}
-              </Button>
-
-              <p className="text-center text-sm text-muted-foreground mt-4">
-                Didn't receive the code?{' '}
-                <button className="text-primary hover:underline">Resend</button>
-              </p>
-            </div>
-          </div>
-        </main>
-        <Footer />
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -201,9 +130,7 @@ export default function Login() {
             {loginType === 'admin' && (
               <div className="mt-6 p-4 rounded-lg bg-muted/50 text-sm">
                 <p className="text-muted-foreground">
-                  <strong>Demo credentials:</strong><br />
-                  Email: admin@election.gov<br />
-                  Password: admin123
+                  <strong>Note:</strong> Admin accounts require approval from system administrators.
                 </p>
               </div>
             )}

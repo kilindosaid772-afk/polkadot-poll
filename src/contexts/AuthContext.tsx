@@ -1,14 +1,23 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { User } from '@/types/election';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { Tables, Database } from '@/integrations/supabase/types';
+
+type AppRole = Database['public']['Enums']['app_role'];
+
+interface Profile extends Tables<'profiles'> {}
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
+  profile: Profile | null;
+  role: AppRole | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  login: (email: string, password: string, role: 'voter' | 'admin') => Promise<boolean>;
-  register: (data: RegisterData) => Promise<boolean>;
-  logout: () => void;
-  verifyOTP: (otp: string) => Promise<boolean>;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<{ error: string | null }>;
+  register: (data: RegisterData) => Promise<{ error: string | null }>;
+  logout: () => Promise<void>;
 }
 
 interface RegisterData {
@@ -23,88 +32,145 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [pendingUser, setPendingUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [role, setRole] = useState<AppRole | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!user;
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = role === 'admin';
 
-  const login = useCallback(async (email: string, password: string, role: 'voter' | 'admin'): Promise<boolean> => {
-    // Mock authentication - in production, this would call an API
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (role === 'admin') {
-      if (email === 'admin@election.gov' && password === 'admin123') {
-        const adminUser: User = {
-          id: 'admin-1',
-          name: 'System Administrator',
-          email: 'admin@election.gov',
-          nationalId: 'ADMIN-001',
-          phone: '+1000000000',
-          role: 'admin',
-          isApproved: true,
-          hasVoted: false,
-          createdAt: new Date().toISOString(),
-        };
-        setUser(adminUser);
-        return true;
+  const fetchProfile = useCallback(async (userId: string) => {
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        return;
       }
-      return false;
-    }
+      
+      setProfile(profileData);
 
-    // Voter login - require OTP verification
-    const mockUser: User = {
-      id: 'voter-' + Date.now(),
-      name: 'Voter User',
-      email,
-      nationalId: 'NID-2024-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
-      phone: '+1234567890',
-      role: 'voter',
-      isApproved: true,
-      hasVoted: false,
-      createdAt: new Date().toISOString(),
-    };
-    setPendingUser(mockUser);
-    return true;
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
+        return;
+      }
+
+      setRole(roleData?.role || 'voter');
+    } catch (error) {
+      console.error('Error in fetchProfile:', error);
+    }
   }, []);
 
-  const verifyOTP = useCallback(async (otp: string): Promise<boolean> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Mock OTP verification - accept any 6-digit code
-    if (otp.length === 6 && pendingUser) {
-      setUser(pendingUser);
-      setPendingUser(null);
-      return true;
-    }
-    return false;
-  }, [pendingUser]);
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          setTimeout(() => {
+            fetchProfile(session.user.id);
+          }, 0);
+        } else {
+          setProfile(null);
+          setRole(null);
+        }
+        setIsLoading(false);
+      }
+    );
 
-  const register = useCallback(async (data: RegisterData): Promise<boolean> => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const newUser: User = {
-      id: 'voter-' + Date.now(),
-      name: data.name,
-      email: data.email,
-      nationalId: data.nationalId,
-      phone: data.phone,
-      role: 'voter',
-      isApproved: false, // Requires admin approval
-      hasVoted: false,
-      createdAt: new Date().toISOString(),
-    };
-    
-    setPendingUser(newUser);
-    return true;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [fetchProfile]);
+
+  const login = useCallback(async (email: string, password: string): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { error: null };
+    } catch (error) {
+      return { error: 'An unexpected error occurred' };
+    }
   }, []);
 
-  const logout = useCallback(() => {
+  const register = useCallback(async (data: RegisterData): Promise<{ error: string | null }> => {
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            name: data.name,
+            national_id: data.nationalId,
+            phone: data.phone,
+          },
+        },
+      });
+
+      if (error) {
+        if (error.message.includes('User already registered')) {
+          return { error: 'An account with this email already exists' };
+        }
+        return { error: error.message };
+      }
+
+      return { error: null };
+    } catch (error) {
+      return { error: 'An unexpected error occurred' };
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    setPendingUser(null);
+    setSession(null);
+    setProfile(null);
+    setRole(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isAdmin, login, register, logout, verifyOTP }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      profile, 
+      role,
+      isAuthenticated, 
+      isAdmin, 
+      isLoading,
+      login, 
+      register, 
+      logout 
+    }}>
       {children}
     </AuthContext.Provider>
   );

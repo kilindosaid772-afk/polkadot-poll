@@ -1,22 +1,23 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Vote, LogOut, User, Shield, Menu } from 'lucide-react';
+import { Vote, LogOut, User, Shield, Menu, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
 
 export function Header() {
-  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { user, profile, isAuthenticated, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 
@@ -27,7 +28,7 @@ export function Header() {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
             <Vote className="h-5 w-5 text-primary" />
           </div>
-          <span className="text-lg font-bold gradient-text">BlockVote</span>
+          <span className="text-lg font-bold gradient-text">ChainVote</span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -52,13 +53,14 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-2">
                   {isAdmin ? <Shield className="h-4 w-4" /> : <User className="h-4 w-4" />}
-                  <span className="hidden sm:inline">{user?.name}</span>
+                  <span className="hidden sm:inline">{profile?.name?.split(' ')[0] || 'Account'}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onClick={() => navigate(isAdmin ? '/admin' : '/voter')}>
                   Dashboard
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
@@ -78,14 +80,14 @@ export function Header() {
 
           {/* Mobile Menu */}
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            <Menu className="h-5 w-5" />
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
       </div>
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
-        <nav className="md:hidden border-t border-border/40 py-4">
+        <nav className="md:hidden border-t border-border/40 py-4 bg-background">
           <div className="container flex flex-col gap-2">
             <Link to="/" className="py-2 text-muted-foreground hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
               Home
@@ -99,6 +101,27 @@ export function Header() {
             <Link to="/explorer" className="py-2 text-muted-foreground hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
               Explorer
             </Link>
+            {isAuthenticated && (
+              <>
+                <div className="border-t border-border my-2" />
+                <Link 
+                  to={isAdmin ? '/admin' : '/voter'} 
+                  className="py-2 text-muted-foreground hover:text-foreground" 
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Dashboard
+                </Link>
+                <button 
+                  className="py-2 text-destructive hover:text-destructive/80 text-left"
+                  onClick={() => {
+                    handleLogout();
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  Logout
+                </button>
+              </>
+            )}
           </div>
         </nav>
       )}

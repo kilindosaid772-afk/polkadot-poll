@@ -3,9 +3,8 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { mockVoters } from '@/lib/mock-data';
-import { User } from '@/types/election';
-import { Search, CheckCircle, XCircle, Clock, Mail, Phone, Download } from 'lucide-react';
+import { useVoters, useApproveVoter, useRejectVoter } from '@/hooks/useAdminData';
+import { Search, CheckCircle, XCircle, Clock, Mail, Phone, Download, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import {
@@ -17,62 +16,58 @@ import {
 } from '@/components/ui/select';
 
 export default function AdminVoters() {
-  const [voters, setVoters] = useState<User[]>([
-    ...mockVoters,
-    {
-      id: '4',
-      name: 'Emily Davis',
-      email: 'emily.davis@email.com',
-      nationalId: 'NID-2024-0004',
-      phone: '+1234567893',
-      role: 'voter',
-      isApproved: false,
-      hasVoted: false,
-      createdAt: '2024-10-22T11:30:00Z',
-    },
-    {
-      id: '5',
-      name: 'Michael Brown',
-      email: 'michael.brown@email.com',
-      nationalId: 'NID-2024-0005',
-      phone: '+1234567894',
-      role: 'voter',
-      isApproved: true,
-      hasVoted: true,
-      createdAt: '2024-10-18T08:45:00Z',
-    },
-  ]);
+  const { data: voters, isLoading } = useVoters();
+  const approveVoter = useApproveVoter();
+  const rejectVoter = useRejectVoter();
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all');
 
-  const handleApprove = (id: string) => {
-    setVoters(voters.map(v => v.id === id ? { ...v, isApproved: true } : v));
-    toast.success('Voter approved successfully');
+  const handleApprove = async (userId: string) => {
+    try {
+      await approveVoter.mutateAsync(userId);
+      toast.success('Voter approved successfully');
+    } catch (error) {
+      toast.error('Failed to approve voter');
+    }
   };
 
-  const handleReject = (id: string) => {
-    setVoters(voters.filter(v => v.id !== id));
-    toast.success('Voter rejected');
+  const handleReject = async (userId: string) => {
+    try {
+      await rejectVoter.mutateAsync(userId);
+      toast.success('Voter registration rejected');
+    } catch (error) {
+      toast.error('Failed to reject voter');
+    }
   };
 
-  const filteredVoters = voters.filter(voter => {
+  const filteredVoters = (voters || []).filter(voter => {
     const matchesSearch = voter.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       voter.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      voter.nationalId.toLowerCase().includes(searchQuery.toLowerCase());
+      voter.national_id.toLowerCase().includes(searchQuery.toLowerCase());
     
     if (filter === 'all') return matchesSearch;
-    if (filter === 'pending') return matchesSearch && !voter.isApproved;
-    if (filter === 'approved') return matchesSearch && voter.isApproved;
-    if (filter === 'voted') return matchesSearch && voter.hasVoted;
+    if (filter === 'pending') return matchesSearch && !voter.is_approved;
+    if (filter === 'approved') return matchesSearch && voter.is_approved;
+    if (filter === 'voted') return matchesSearch && voter.has_voted;
     return matchesSearch;
   });
 
   const stats = {
-    total: voters.length,
-    approved: voters.filter(v => v.isApproved).length,
-    pending: voters.filter(v => !v.isApproved).length,
-    voted: voters.filter(v => v.hasVoted).length,
+    total: voters?.length || 0,
+    approved: voters?.filter(v => v.is_approved).length || 0,
+    pending: voters?.filter(v => !v.is_approved).length || 0,
+    voted: voters?.filter(v => v.has_voted).length || 0,
   };
+
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -162,7 +157,7 @@ export default function AdminVoters() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="font-mono text-sm">{voter.nationalId}</span>
+                    <span className="font-mono text-sm">{voter.national_id}</span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="space-y-1">
@@ -172,18 +167,18 @@ export default function AdminVoters() {
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Phone className="h-3 w-3" />
-                        {voter.phone}
+                        {voter.phone || 'N/A'}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-sm text-muted-foreground">
-                      {format(new Date(voter.createdAt), 'MMM d, yyyy')}
+                      {format(new Date(voter.created_at), 'MMM d, yyyy')}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      {voter.isApproved ? (
+                      {voter.is_approved ? (
                         <Badge className="bg-success/10 text-success border-success/20">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Approved
@@ -194,7 +189,7 @@ export default function AdminVoters() {
                           Pending
                         </Badge>
                       )}
-                      {voter.hasVoted && (
+                      {voter.has_voted && (
                         <Badge className="bg-primary/10 text-primary border-primary/20">
                           Voted
                         </Badge>
@@ -203,13 +198,14 @@ export default function AdminVoters() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
-                      {!voter.isApproved && (
+                      {!voter.is_approved && (
                         <>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="text-success hover:text-success hover:bg-success/10"
-                            onClick={() => handleApprove(voter.id)}
+                            onClick={() => handleApprove(voter.user_id)}
+                            disabled={approveVoter.isPending}
                           >
                             <CheckCircle className="h-4 w-4 mr-1" />
                             Approve
@@ -218,7 +214,8 @@ export default function AdminVoters() {
                             variant="ghost"
                             size="sm"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleReject(voter.id)}
+                            onClick={() => handleReject(voter.user_id)}
+                            disabled={rejectVoter.isPending}
                           >
                             <XCircle className="h-4 w-4 mr-1" />
                             Reject

@@ -1,42 +1,16 @@
-import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { TransactionCard } from '@/components/shared/TransactionCard';
 import { BlockchainStatus } from '@/components/shared/BlockchainStatus';
-import { mockTransactions, generateVoteHash } from '@/lib/mock-data';
-import { BlockchainTransaction } from '@/types/election';
-import { Box, Activity, Database, Zap } from 'lucide-react';
+import { useBlockchainTransactions } from '@/hooks/useVotes';
+import { useDashboardStats } from '@/hooks/useAdminData';
+import { Box, Activity, Database, Zap, Loader2 } from 'lucide-react';
 
 export default function Explorer() {
-  const [transactions, setTransactions] = useState<BlockchainTransaction[]>(mockTransactions);
-  const [blockHeight, setBlockHeight] = useState(15847350);
+  const { data: transactions, isLoading } = useBlockchainTransactions();
+  const { data: stats } = useDashboardStats();
 
-  useEffect(() => {
-    // Simulate new blocks/transactions coming in
-    const interval = setInterval(() => {
-      setBlockHeight(prev => prev + 1);
-      
-      // Occasionally add a new transaction
-      if (Math.random() > 0.7) {
-        const newTx: BlockchainTransaction = {
-          hash: generateVoteHash(),
-          blockNumber: blockHeight + 1,
-          timestamp: new Date().toISOString(),
-          type: 'vote',
-          data: { candidateId: String(Math.floor(Math.random() * 4) + 1), electionId: '1' },
-          confirmations: 1,
-        };
-        setTransactions(prev => [newTx, ...prev.slice(0, 19)]);
-      }
-
-      // Increment confirmations
-      setTransactions(prev => 
-        prev.map(tx => ({ ...tx, confirmations: tx.confirmations + 1 }))
-      );
-    }, 6000);
-
-    return () => clearInterval(interval);
-  }, [blockHeight]);
+  const blockHeight = stats?.blockchainHeight || 15847350;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -86,7 +60,7 @@ export default function Explorer() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Votes</p>
-                  <p className="text-lg font-bold">13,804</p>
+                  <p className="text-lg font-bold">{(stats?.totalVotesCast || 0).toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -122,17 +96,28 @@ export default function Explorer() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              {transactions.map((tx, index) => (
-                <div 
-                  key={tx.hash + index}
-                  className="animate-fade-in"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <TransactionCard transaction={tx} />
-                </div>
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : transactions && transactions.length > 0 ? (
+              <div className="space-y-3">
+                {transactions.map((tx, index) => (
+                  <div 
+                    key={tx.id}
+                    className="animate-fade-in"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <TransactionCard transaction={tx} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border p-12 text-center">
+                <Database className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                <p className="text-muted-foreground">No transactions yet</p>
+              </div>
+            )}
           </div>
         </div>
       </main>

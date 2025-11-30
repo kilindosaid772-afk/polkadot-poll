@@ -1,7 +1,5 @@
 import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
-import { useAuth } from '@/contexts/AuthContext';
 import { BlockchainStatus } from '@/components/shared/BlockchainStatus';
 
 interface AdminLayoutProps {
@@ -9,12 +7,7 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { isAuthenticated, isAdmin } = useAuth();
-
-  if (!isAuthenticated || !isAdmin) {
-    return <Navigate to="/login" replace />;
-  }
-
+  // Protection is now handled by ProtectedRoute in App.tsx
   return (
     <div className="min-h-screen bg-background">
       <AdminSidebar />

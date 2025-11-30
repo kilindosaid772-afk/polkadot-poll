@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 // Public pages
 import Index from "./pages/Index";
@@ -48,16 +49,44 @@ const App = () => (
             <Route path="/results/:electionId" element={<Results />} />
             <Route path="/results" element={<Results />} />
 
-            {/* Voter Routes */}
-            <Route path="/voter" element={<VoterDashboard />} />
+            {/* Voter Routes - Protected */}
+            <Route path="/voter" element={
+              <ProtectedRoute requireAdmin={false}>
+                <VoterDashboard />
+              </ProtectedRoute>
+            } />
 
-            {/* Admin Routes */}
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/elections" element={<AdminElections />} />
-            <Route path="/admin/voters" element={<AdminVoters />} />
-            <Route path="/admin/candidates" element={<AdminCandidates />} />
-            <Route path="/admin/blockchain" element={<AdminBlockchain />} />
-            <Route path="/admin/audit" element={<AdminAudit />} />
+            {/* Admin Routes - Protected */}
+            <Route path="/admin" element={
+              <ProtectedRoute requireAdmin>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/elections" element={
+              <ProtectedRoute requireAdmin>
+                <AdminElections />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/voters" element={
+              <ProtectedRoute requireAdmin>
+                <AdminVoters />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/candidates" element={
+              <ProtectedRoute requireAdmin>
+                <AdminCandidates />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/blockchain" element={
+              <ProtectedRoute requireAdmin>
+                <AdminBlockchain />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/audit" element={
+              <ProtectedRoute requireAdmin>
+                <AdminAudit />
+              </ProtectedRoute>
+            } />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

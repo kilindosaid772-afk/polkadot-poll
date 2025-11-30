@@ -1,4 +1,4 @@
-import { BlockchainTransaction } from '@/types/election';
+import { BlockchainTransaction } from '@/hooks/useVotes';
 import { Box, Clock, CheckCircle, FileText, UserPlus, Vote } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -6,7 +6,7 @@ interface TransactionCardProps {
   transaction: BlockchainTransaction;
 }
 
-const typeConfig = {
+const typeConfig: Record<string, { icon: typeof Vote; label: string; color: string; bg: string }> = {
   vote: {
     icon: Vote,
     label: 'Vote Cast',
@@ -28,7 +28,7 @@ const typeConfig = {
 };
 
 export function TransactionCard({ transaction }: TransactionCardProps) {
-  const config = typeConfig[transaction.type];
+  const config = typeConfig[transaction.tx_type] || typeConfig.vote;
   const Icon = config.icon;
 
   return (
@@ -48,17 +48,17 @@ export function TransactionCard({ transaction }: TransactionCardProps) {
           </div>
           
           <p className="font-mono text-sm text-foreground mt-1 truncate">
-            {transaction.hash}
+            {transaction.tx_hash}
           </p>
           
           <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
               <Box className="h-3 w-3" />
-              <span>Block #{transaction.blockNumber.toLocaleString()}</span>
+              <span>Block #{transaction.block_number.toLocaleString()}</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              <span>{formatDistanceToNow(new Date(transaction.timestamp), { addSuffix: true })}</span>
+              <span>{formatDistanceToNow(new Date(transaction.created_at), { addSuffix: true })}</span>
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
-import { Candidate } from '@/types/election';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { Candidate } from '@/hooks/useElections';
 
 interface CandidateCardProps {
   candidate: Candidate;
@@ -20,7 +20,7 @@ export function CandidateCard({
   totalVotes = 0,
   disabled = false 
 }: CandidateCardProps) {
-  const votePercentage = totalVotes > 0 ? (candidate.voteCount / totalVotes) * 100 : 0;
+  const votePercentage = totalVotes > 0 ? (candidate.vote_count / totalVotes) * 100 : 0;
 
   return (
     <div
@@ -41,7 +41,7 @@ export function CandidateCard({
 
       <div className="flex items-start gap-4">
         <Avatar className="h-16 w-16 border-2 border-border">
-          <AvatarImage src={candidate.photo} alt={candidate.name} />
+          <AvatarImage src={candidate.photo || undefined} alt={candidate.name} />
           <AvatarFallback className="text-lg">{candidate.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
         </Avatar>
         
@@ -56,7 +56,7 @@ export function CandidateCard({
         <div className="mt-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Votes</span>
-            <span className="font-medium">{candidate.voteCount.toLocaleString()} ({votePercentage.toFixed(1)}%)</span>
+            <span className="font-medium">{candidate.vote_count.toLocaleString()} ({votePercentage.toFixed(1)}%)</span>
           </div>
           <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div 

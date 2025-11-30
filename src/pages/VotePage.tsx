@@ -4,9 +4,10 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { CandidateCard } from '@/components/shared/CandidateCard';
-import { mockElections, generateVoteHash } from '@/lib/mock-data';
 import { useAuth } from '@/contexts/AuthContext';
-import { Vote, AlertTriangle, CheckCircle, Copy, ExternalLink, Loader2 } from 'lucide-react';
+import { useElection, Candidate } from '@/hooks/useElections';
+import { useCastVote, useUserVotes } from '@/hooks/useVotes';
+import { Vote, AlertTriangle, CheckCircle, Copy, ExternalLink, Loader2, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -15,21 +16,35 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Candidate } from '@/types/election';
 
 export default function VotePage() {
   const { electionId } = useParams();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, profile } = useAuth();
   
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [voteResult, setVoteResult] = useState<{ hash: string; blockNumber: number } | null>(null);
 
-  const election = mockElections.find(e => e.id === electionId);
+  const { data: election, isLoading: electionLoading, error: electionError } = useElection(electionId || '');
+  const { data: userVotes } = useUserVotes();
+  const castVoteMutation = useCastVote();
 
-  if (!election) {
+  const hasVotedInElection = userVotes?.some(v => v.election_id === electionId);
+
+  if (electionLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!election || electionError) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -66,21 +81,119 @@ export default function VotePage() {
     );
   }
 
+  if (!profile?.is_approved) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto px-4">
+            <div className="h-16 w-16 rounded-full bg-warning/10 flex items-center justify-center mx-auto mb-4">
+              <ShieldAlert className="h-8 w-8 text-warning" />
+            </div>
+            <h1 className="text-2xl font-bold mb-2">Approval Required</h1>
+            <p className="text-muted-foreground mb-6">
+              Your voter registration is pending approval. Please wait for an administrator to approve your account.
+            </p>
+            <Button onClick={() => navigate('/voter')}>Go to Dashboard</Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (hasVotedInElection) {
+    const existingVote = userVotes?.find(v => v.election_id === electionId);
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center py-12 px-4">
+          <div className="max-w-lg w-full">
+            <div className="rounded-2xl border border-border bg-card p-8 text-center">
+              <div className="h-20 w-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="h-10 w-10 text-success" />
+              </div>
+              
+              <h1 className="text-2xl font-bold mb-2">Already Voted</h1>
+              <p className="text-muted-foreground mb-6">
+                You have already cast your vote in this election.
+              </p>
+
+              {existingVote && (
+                <div className="rounded-lg bg-muted/50 p-4 mb-6 text-left">
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Block Number:</span>
+                      <p className="font-mono">{existingVote.block_number.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Transaction Hash:</span>
+                      <p className="font-mono text-xs break-all">{existingVote.tx_hash}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <Button className="w-full" variant="outline" onClick={() => navigate(`/verify?hash=${existingVote?.tx_hash}`)}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Verify on Blockchain
+                </Button>
+                <Button className="w-full" onClick={() => navigate('/voter')}>
+                  Return to Dashboard
+                </Button>
+              </div>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (election.status !== 'active') {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto px-4">
+            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+              <Vote className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h1 className="text-2xl font-bold mb-2">
+              {election.status === 'upcoming' ? 'Election Not Started' : 'Election Ended'}
+            </h1>
+            <p className="text-muted-foreground mb-6">
+              {election.status === 'upcoming' 
+                ? `This election starts on ${new Date(election.start_date).toLocaleDateString()}.`
+                : 'This election has ended. View the results below.'}
+            </p>
+            <Button onClick={() => navigate(election.status === 'completed' ? `/results/${electionId}` : '/elections')}>
+              {election.status === 'completed' ? 'View Results' : 'View All Elections'}
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   const handleSubmitVote = async () => {
-    if (!selectedCandidate) return;
+    if (!selectedCandidate || !electionId) return;
 
-    setIsSubmitting(true);
+    try {
+      const result = await castVoteMutation.mutateAsync({
+        electionId,
+        candidateId: selectedCandidate.id,
+      });
 
-    // Simulate blockchain transaction
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    const hash = generateVoteHash();
-    const blockNumber = 15847350 + Math.floor(Math.random() * 100);
-
-    setVoteResult({ hash, blockNumber });
-    setIsSubmitting(false);
-    setShowConfirmation(false);
-    toast.success('Your vote has been recorded on the blockchain!');
+      setVoteResult({ hash: result.txHash, blockNumber: result.blockNumber });
+      setShowConfirmation(false);
+      toast.success('Your vote has been recorded on the blockchain!');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to cast vote';
+      toast.error(errorMessage);
+    }
   };
 
   const copyHash = () => {
@@ -97,7 +210,7 @@ export default function VotePage() {
         <main className="flex-1 flex items-center justify-center py-12 px-4">
           <div className="max-w-lg w-full">
             <div className="rounded-2xl border border-border bg-card p-8 text-center">
-              <div className="h-20 w-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6 animate-pulse-glow">
+              <div className="h-20 w-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6 animate-pulse">
                 <CheckCircle className="h-10 w-10 text-success" />
               </div>
               
@@ -181,7 +294,6 @@ export default function VotePage() {
             <div className="flex justify-end">
               <Button
                 size="lg"
-                variant="gradient"
                 disabled={!selectedCandidate}
                 onClick={() => setShowConfirmation(true)}
               >
@@ -212,8 +324,8 @@ export default function VotePage() {
             <Button variant="outline" onClick={() => setShowConfirmation(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmitVote} disabled={isSubmitting}>
-              {isSubmitting ? (
+            <Button onClick={handleSubmitVote} disabled={castVoteMutation.isPending}>
+              {castVoteMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Recording on Blockchain...

@@ -53,17 +53,47 @@ export function useDashboardStats() {
   });
 }
 
+async function sendApprovalEmail(email: string, name: string, approved: boolean) {
+  try {
+    const response = await supabase.functions.invoke('send-approval-email', {
+      body: { email, name, approved },
+    });
+    
+    if (response.error) {
+      console.error('Failed to send email:', response.error);
+    } else {
+      console.log('Approval email sent successfully');
+    }
+  } catch (error) {
+    console.error('Error sending approval email:', error);
+  }
+}
+
 export function useApproveVoter() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (userId: string) => {
+      // Get the profile first for email
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('email, name')
+        .eq('user_id', userId)
+        .single();
+
+      if (profileError) throw profileError;
+
       const { error } = await supabase
         .from('profiles')
         .update({ is_approved: true })
         .eq('user_id', userId);
 
       if (error) throw error;
+
+      // Send approval email in background
+      if (profile) {
+        sendApprovalEmail(profile.email, profile.name, true);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voters'] });
@@ -77,12 +107,26 @@ export function useRejectVoter() {
 
   return useMutation({
     mutationFn: async (userId: string) => {
+      // Get the profile first for email
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('email, name')
+        .eq('user_id', userId)
+        .single();
+
+      if (profileError) throw profileError;
+
       const { error } = await supabase
         .from('profiles')
         .update({ is_approved: false })
         .eq('user_id', userId);
 
       if (error) throw error;
+
+      // Send rejection email in background
+      if (profile) {
+        sendApprovalEmail(profile.email, profile.name, false);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voters'] });
@@ -148,8 +192,9 @@ export function useAddCandidate() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['elections'] });
+      queryClient.invalidateQueries({ queryKey: ['election', variables.electionId] });
     },
   });
 }
@@ -180,6 +225,34 @@ export function useUpdateElectionStatus() {
       const { error } = await supabase
         .from('elections')
         .update({ status })
+        .eq('id', electionId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['elections'] });
+      queryClient.invalidateQueries({ queryKey: ['activeElection'] });
+    },
+  });
+}
+
+export function useDeleteElection() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (electionId: string) => {
+      // First delete all candidates for this election
+      const { error: candidatesError } = await supabase
+        .from('candidates')
+        .delete()
+        .eq('election_id', electionId);
+
+      if (candidatesError) throw candidatesError;
+
+      // Then delete the election
+      const { error } = await supabase
+        .from('elections')
+        .delete()
         .eq('id', electionId);
 
       if (error) throw error;

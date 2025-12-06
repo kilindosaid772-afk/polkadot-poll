@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { mockElections } from '@/lib/mock-data';
-import { Election } from '@/types/election';
-import { Plus, Edit, Trash2, Play, Pause, Calendar, Users, Vote } from 'lucide-react';
+import { useElections, Election } from '@/hooks/useElections';
+import { useCreateElection, useUpdateElectionStatus, useDeleteElection } from '@/hooks/useAdminData';
+import { Plus, Edit, Trash2, Play, Pause, Calendar, Users, Vote, Loader2, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   Dialog,
@@ -14,10 +14,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import { useRealtimeElections } from '@/hooks/useRealtimeElection';
 
 const statusConfig = {
   upcoming: { label: 'Upcoming', color: 'bg-warning/10 text-warning border-warning/20' },
@@ -26,8 +38,15 @@ const statusConfig = {
 };
 
 export default function AdminElections() {
-  const [elections, setElections] = useState<Election[]>(mockElections);
+  const navigate = useNavigate();
+  const { data: elections, isLoading } = useElections();
+  const createElection = useCreateElection();
+  const updateStatus = useUpdateElectionStatus();
+  const deleteElection = useDeleteElection();
+  
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [electionToDelete, setElectionToDelete] = useState<string | null>(null);
   const [newElection, setNewElection] = useState({
     title: '',
     description: '',
@@ -35,39 +54,70 @@ export default function AdminElections() {
     endDate: '',
   });
 
-  const handleCreate = () => {
+  // Enable realtime updates
+  useRealtimeElections();
+
+  const handleCreate = async () => {
     if (!newElection.title || !newElection.startDate || !newElection.endDate) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    const election: Election = {
-      id: String(elections.length + 1),
-      title: newElection.title,
-      description: newElection.description,
-      startDate: new Date(newElection.startDate).toISOString(),
-      endDate: new Date(newElection.endDate).toISOString(),
-      status: 'upcoming',
-      totalVotes: 0,
-      candidates: [],
-    };
-
-    setElections([...elections, election]);
-    setIsCreateOpen(false);
-    setNewElection({ title: '', description: '', startDate: '', endDate: '' });
-    toast.success('Election created successfully');
+    try {
+      await createElection.mutateAsync({
+        title: newElection.title,
+        description: newElection.description,
+        startDate: new Date(newElection.startDate).toISOString(),
+        endDate: new Date(newElection.endDate).toISOString(),
+      });
+      setIsCreateOpen(false);
+      setNewElection({ title: '', description: '', startDate: '', endDate: '' });
+      toast.success('Election created successfully');
+    } catch (error) {
+      toast.error('Failed to create election');
+    }
   };
 
-  const toggleStatus = (id: string) => {
-    setElections(elections.map(e => {
-      if (e.id === id) {
-        const newStatus = e.status === 'active' ? 'upcoming' : 'active';
-        toast.success(`Election ${newStatus === 'active' ? 'started' : 'paused'}`);
-        return { ...e, status: newStatus as Election['status'] };
-      }
-      return e;
-    }));
+  const toggleStatus = async (election: Election) => {
+    const newStatus = election.status === 'active' ? 'upcoming' : 'active';
+    try {
+      await updateStatus.mutateAsync({ electionId: election.id, status: newStatus });
+      toast.success(`Election ${newStatus === 'active' ? 'started' : 'paused'}`);
+    } catch (error) {
+      toast.error('Failed to update election status');
+    }
   };
+
+  const completeElection = async (electionId: string) => {
+    try {
+      await updateStatus.mutateAsync({ electionId, status: 'completed' });
+      toast.success('Election marked as completed');
+    } catch (error) {
+      toast.error('Failed to complete election');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!electionToDelete) return;
+    try {
+      await deleteElection.mutateAsync(electionToDelete);
+      toast.success('Election deleted');
+      setDeleteDialogOpen(false);
+      setElectionToDelete(null);
+    } catch (error) {
+      toast.error('Failed to delete election');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -133,7 +183,10 @@ export default function AdminElections() {
               </div>
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreate}>Create Election</Button>
+                <Button onClick={handleCreate} disabled={createElection.isPending}>
+                  {createElection.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Create Election
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -147,14 +200,13 @@ export default function AdminElections() {
                 <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Election</th>
                 <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Status</th>
                 <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Duration</th>
-                <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Candidates</th>
                 <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Votes</th>
                 <th className="text-right px-6 py-4 text-sm font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {elections.map((election) => {
-                const config = statusConfig[election.status];
+              {elections?.map((election) => {
+                const config = statusConfig[election.status as keyof typeof statusConfig] || statusConfig.upcoming;
                 return (
                   <tr key={election.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4">
@@ -170,41 +222,62 @@ export default function AdminElections() {
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar className="h-4 w-4" />
                         <span>
-                          {format(new Date(election.startDate), 'MMM d')} - {format(new Date(election.endDate), 'MMM d, yyyy')}
+                          {format(new Date(election.start_date), 'MMM d')} - {format(new Date(election.end_date), 'MMM d, yyyy')}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-sm">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        {election.candidates.length}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-sm">
                         <Vote className="h-4 w-4 text-muted-foreground" />
-                        {election.totalVotes.toLocaleString()}
+                        {election.total_votes.toLocaleString()}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         {election.status !== 'completed' && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleStatus(election.id)}
-                          >
-                            {election.status === 'active' ? (
-                              <Pause className="h-4 w-4" />
-                            ) : (
-                              <Play className="h-4 w-4" />
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => toggleStatus(election)}
+                              disabled={updateStatus.isPending}
+                              title={election.status === 'active' ? 'Pause' : 'Start'}
+                            >
+                              {election.status === 'active' ? (
+                                <Pause className="h-4 w-4" />
+                              ) : (
+                                <Play className="h-4 w-4" />
+                              )}
+                            </Button>
+                            {election.status === 'active' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => completeElection(election.id)}
+                                disabled={updateStatus.isPending}
+                                title="Complete Election"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
                             )}
-                          </Button>
+                          </>
                         )}
-                        <Button variant="ghost" size="icon">
-                          <Edit className="h-4 w-4" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => navigate(`/admin/candidates?election=${election.id}`)}
+                        >
+                          <Users className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive"
+                          onClick={() => {
+                            setElectionToDelete(election.id);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -214,8 +287,32 @@ export default function AdminElections() {
               })}
             </tbody>
           </table>
+
+          {(!elections || elections.length === 0) && (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No elections found. Create one to get started.</p>
+            </div>
+          )}
         </div>
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Election</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this election? This action cannot be undone.
+              All candidates and votes associated with this election will also be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }

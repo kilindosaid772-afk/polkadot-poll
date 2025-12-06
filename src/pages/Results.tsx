@@ -4,8 +4,10 @@ import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { CandidateCard } from '@/components/shared/CandidateCard';
 import { useElection, useElections } from '@/hooks/useElections';
+import { useRealtimeElection } from '@/hooks/useRealtimeElection';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Trophy, Users, Vote, TrendingUp, Loader2 } from 'lucide-react';
+import { Trophy, Users, Vote, TrendingUp, Loader2, Radio } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const COLORS = ['hsl(199, 89%, 48%)', 'hsl(262, 83%, 58%)', 'hsl(142, 76%, 36%)', 'hsl(38, 92%, 50%)'];
 
@@ -18,6 +20,9 @@ export default function Results() {
   const defaultElectionId = electionId || elections?.find(e => e.status === 'completed' || e.status === 'active')?.id;
   
   const { data: election, isLoading, error } = useElection(defaultElectionId || '');
+  
+  // Enable realtime updates for this election
+  useRealtimeElection(defaultElectionId);
 
   if (isLoading) {
     return (
@@ -86,10 +91,21 @@ export default function Results() {
       <main className="flex-1 py-12">
         <div className="container">
           <div className="mb-12">
-            <h1 className="text-3xl font-bold mb-2">
-              <span className="gradient-text">Election Results</span>
-            </h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold">
+                <span className="gradient-text">Election Results</span>
+              </h1>
+              {election.status === 'active' && (
+                <Badge className="bg-success/10 text-success border-success/20 animate-pulse">
+                  <Radio className="h-3 w-3 mr-1" />
+                  Live
+                </Badge>
+              )}
+            </div>
             <p className="text-lg text-muted-foreground">{election.title}</p>
+            {election.status === 'active' && (
+              <p className="text-sm text-success mt-1">Results update in real-time as votes are cast</p>
+            )}
           </div>
 
           {/* Winner Banner */}

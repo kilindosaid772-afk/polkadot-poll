@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useElections, Election } from '@/hooks/useElections';
+import { useElectionsWithCandidates, ElectionWithCandidates } from '@/hooks/useElections';
 import { useCreateElection, useUpdateElectionStatus, useDeleteElection } from '@/hooks/useAdminData';
-import { Plus, Edit, Trash2, Play, Pause, Calendar, Users, Vote, Loader2, CheckCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Pause, Calendar, Users, Vote, Loader2, CheckCircle, Download, FileText, FileSpreadsheet } from 'lucide-react';
 import { format } from 'date-fns';
+import { generateElectionResultsPDF, generateElectionResultsCSV, downloadCSV, ElectionResultData } from '@/lib/pdfUtils';
 import {
   Dialog,
   DialogContent,
@@ -39,7 +40,7 @@ const statusConfig = {
 
 export default function AdminElections() {
   const navigate = useNavigate();
-  const { data: elections, isLoading } = useElections();
+  const { data: elections, isLoading } = useElectionsWithCandidates();
   const createElection = useCreateElection();
   const updateStatus = useUpdateElectionStatus();
   const deleteElection = useDeleteElection();
@@ -78,7 +79,7 @@ export default function AdminElections() {
     }
   };
 
-  const toggleStatus = async (election: Election) => {
+  const toggleStatus = async (election: ElectionWithCandidates) => {
     const newStatus = election.status === 'active' ? 'upcoming' : 'active';
     try {
       await updateStatus.mutateAsync({ electionId: election.id, status: newStatus });
@@ -107,6 +108,40 @@ export default function AdminElections() {
     } catch (error) {
       toast.error('Failed to delete election');
     }
+  };
+
+  const getElectionResultData = (election: ElectionWithCandidates): ElectionResultData => {
+    const candidates = election.candidates || [];
+    const totalVotes = candidates.reduce((sum, c) => sum + (c.vote_count || 0), 0);
+    
+    return {
+      electionTitle: election.title,
+      electionDescription: election.description || '',
+      startDate: election.start_date,
+      endDate: election.end_date,
+      status: election.status,
+      totalVotes: totalVotes,
+      candidates: candidates.map(c => ({
+        name: c.name,
+        party: c.party,
+        voteCount: c.vote_count || 0,
+        percentage: totalVotes > 0 ? ((c.vote_count || 0) / totalVotes) * 100 : 0,
+      })),
+    };
+  };
+
+  const exportToPDF = (election: ElectionWithCandidates) => {
+    const data = getElectionResultData(election);
+    const pdf = generateElectionResultsPDF(data);
+    pdf.save(`election-results-${election.title.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+    toast.success('Election results exported to PDF');
+  };
+
+  const exportToCSV = (election: ElectionWithCandidates) => {
+    const data = getElectionResultData(election);
+    const csv = generateElectionResultsCSV(data);
+    downloadCSV(csv, `election-results-${election.title.toLowerCase().replace(/\s+/g, '-')}.csv`);
+    toast.success('Election results exported to CSV');
   };
 
   if (isLoading) {
@@ -201,6 +236,7 @@ export default function AdminElections() {
                 <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Status</th>
                 <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Duration</th>
                 <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Votes</th>
+                <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">Export</th>
                 <th className="text-right px-6 py-4 text-sm font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
@@ -230,6 +266,26 @@ export default function AdminElections() {
                       <div className="flex items-center gap-2 text-sm">
                         <Vote className="h-4 w-4 text-muted-foreground" />
                         {election.total_votes.toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => exportToPDF(election)}
+                          title="Export to PDF"
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => exportToCSV(election)}
+                          title="Export to CSV"
+                        >
+                          <FileSpreadsheet className="h-4 w-4" />
+                        </Button>
                       </div>
                     </td>
                     <td className="px-6 py-4">

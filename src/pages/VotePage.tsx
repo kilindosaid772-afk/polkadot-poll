@@ -7,7 +7,7 @@ import { CandidateCard } from '@/components/shared/CandidateCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useElection, Candidate } from '@/hooks/useElections';
 import { useCastVote, useUserVotes } from '@/hooks/useVotes';
-import { Vote, AlertTriangle, CheckCircle, Copy, ExternalLink, Loader2, ShieldAlert } from 'lucide-react';
+import { Vote, AlertTriangle, CheckCircle, Copy, ExternalLink, Loader2, ShieldAlert, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { TwoFactorVerification } from '@/components/voting/TwoFactorVerification';
+import { generateVoteReceiptPDF } from '@/lib/pdfUtils';
 
 export default function VotePage() {
   const { electionId } = useParams();
@@ -206,6 +207,23 @@ export default function VotePage() {
     }
   };
 
+  const downloadReceipt = () => {
+    if (!voteResult || !selectedCandidate || !election) return;
+    
+    const pdf = generateVoteReceiptPDF({
+      voterName: profile?.name || user?.email || 'Voter',
+      electionTitle: election.title,
+      candidateName: selectedCandidate.name,
+      candidateParty: selectedCandidate.party,
+      txHash: voteResult.hash,
+      blockNumber: voteResult.blockNumber,
+      timestamp: new Date(),
+    });
+    
+    pdf.save(`vote-receipt-${voteResult.hash.slice(0, 10)}.pdf`);
+    toast.success('Vote receipt downloaded');
+  };
+
   if (voteResult) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -245,11 +263,15 @@ export default function VotePage() {
               </div>
 
               <div className="space-y-3">
+                <Button className="w-full" onClick={downloadReceipt}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Vote Receipt (PDF)
+                </Button>
                 <Button className="w-full" variant="outline" onClick={() => navigate(`/verify?hash=${voteResult.hash}`)}>
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Verify on Blockchain
                 </Button>
-                <Button className="w-full" onClick={() => navigate('/voter')}>
+                <Button className="w-full" variant="ghost" onClick={() => navigate('/voter')}>
                   Return to Dashboard
                 </Button>
               </div>

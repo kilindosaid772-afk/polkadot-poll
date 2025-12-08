@@ -24,6 +24,32 @@ export function useElections() {
   });
 }
 
+export function useElectionsWithCandidates() {
+  return useQuery({
+    queryKey: ['electionsWithCandidates'],
+    queryFn: async () => {
+      const { data: elections, error: electionsError } = await supabase
+        .from('elections')
+        .select('*')
+        .order('start_date', { ascending: false });
+
+      if (electionsError) throw electionsError;
+
+      const { data: candidates, error: candidatesError } = await supabase
+        .from('candidates')
+        .select('*')
+        .order('vote_count', { ascending: false });
+
+      if (candidatesError) throw candidatesError;
+
+      return elections.map(election => ({
+        ...election,
+        candidates: (candidates || []).filter(c => c.election_id === election.id),
+      })) as ElectionWithCandidates[];
+    },
+  });
+}
+
 export function useElection(id: string) {
   return useQuery({
     queryKey: ['election', id],

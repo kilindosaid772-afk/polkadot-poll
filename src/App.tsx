@@ -15,6 +15,7 @@ import VotePage from "./pages/VotePage";
 import Verify from "./pages/Verify";
 import Explorer from "./pages/Explorer";
 import Results from "./pages/Results";
+import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
 // Voter pages
@@ -27,6 +28,7 @@ import AdminVoters from "./pages/admin/AdminVoters";
 import AdminCandidates from "./pages/admin/AdminCandidates";
 import AdminBlockchain from "./pages/admin/AdminBlockchain";
 import AdminAudit from "./pages/admin/AdminAudit";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +45,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/elections" element={<Elections />} />
+            <Route path="/calendar" element={<Calendar />} />
             <Route path="/vote/:electionId" element={<VotePage />} />
             <Route path="/verify" element={<Verify />} />
             <Route path="/explorer" element={<Explorer />} />
@@ -75,6 +78,11 @@ const App = () => (
             <Route path="/admin/candidates" element={
               <ProtectedRoute requireAdmin>
                 <AdminCandidates />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/analytics" element={
+              <ProtectedRoute requireAdmin>
+                <AdminAnalytics />
               </ProtectedRoute>
             } />
             <Route path="/admin/blockchain" element={

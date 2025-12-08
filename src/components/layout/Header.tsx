@@ -39,6 +39,9 @@ export function Header() {
           <Link to="/elections" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Elections
           </Link>
+          <Link to="/calendar" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Calendar
+          </Link>
           <Link to="/verify" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Verify Vote
           </Link>
@@ -94,6 +97,9 @@ export function Header() {
             </Link>
             <Link to="/elections" className="py-2 text-muted-foreground hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
               Elections
+            </Link>
+            <Link to="/calendar" className="py-2 text-muted-foreground hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
+              Calendar
             </Link>
             <Link to="/verify" className="py-2 text-muted-foreground hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
               Verify Vote

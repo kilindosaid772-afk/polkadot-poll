@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { TwoFactorVerification } from '@/components/voting/TwoFactorVerification';
 
 export default function VotePage() {
   const { electionId } = useParams();
@@ -24,6 +25,8 @@ export default function VotePage() {
   
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [show2FA, setShow2FA] = useState(false);
+  const [is2FAVerified, setIs2FAVerified] = useState(false);
   const [voteResult, setVoteResult] = useState<{ hash: string; blockNumber: number } | null>(null);
 
   const { data: election, isLoading: electionLoading, error: electionError } = useElection(electionId || '');
@@ -295,10 +298,16 @@ export default function VotePage() {
               <Button
                 size="lg"
                 disabled={!selectedCandidate}
-                onClick={() => setShowConfirmation(true)}
+                onClick={() => {
+                  if (!is2FAVerified) {
+                    setShow2FA(true);
+                  } else {
+                    setShowConfirmation(true);
+                  }
+                }}
               >
                 <Vote className="h-5 w-5 mr-2" />
-                Submit Vote
+                {is2FAVerified ? 'Submit Vote' : 'Verify & Vote'}
               </Button>
             </div>
           </div>
@@ -340,6 +349,16 @@ export default function VotePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <TwoFactorVerification
+        open={show2FA}
+        onOpenChange={setShow2FA}
+        onVerified={() => {
+          setIs2FAVerified(true);
+          setShowConfirmation(true);
+        }}
+        userEmail={profile?.email || user?.email || ''}
+      />
 
       <Footer />
     </div>

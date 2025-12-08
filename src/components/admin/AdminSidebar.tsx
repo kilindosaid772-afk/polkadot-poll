@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Vote, Users, UserCheck, 
-  Settings, FileText, Box, LogOut 
+  Settings, FileText, Box, LogOut, BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,9 +11,9 @@ const navItems = [
   { icon: Vote, label: 'Elections', path: '/admin/elections' },
   { icon: Users, label: 'Candidates', path: '/admin/candidates' },
   { icon: UserCheck, label: 'Voters', path: '/admin/voters' },
+  { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
   { icon: Box, label: 'Blockchain', path: '/admin/blockchain' },
   { icon: FileText, label: 'Audit Logs', path: '/admin/audit' },
-  { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 
 export function AdminSidebar() {

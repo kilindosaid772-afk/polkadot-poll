@@ -17,7 +17,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { TwoFactorVerification } from '@/components/voting/TwoFactorVerification';
-import { generateVoteReceiptPDF } from '@/lib/pdfUtils';
+import { VoteReceiptPreview } from '@/components/voting/VoteReceiptPreview';
+import { VoteReceiptData } from '@/lib/pdfUtils';
 
 export default function VotePage() {
   const { electionId } = useParams();
@@ -207,10 +208,9 @@ export default function VotePage() {
     }
   };
 
-  const downloadReceipt = () => {
-    if (!voteResult || !selectedCandidate || !election) return;
-    
-    const pdf = generateVoteReceiptPDF({
+  const getReceiptData = (): VoteReceiptData | null => {
+    if (!voteResult || !selectedCandidate || !election) return null;
+    return {
       voterName: profile?.name || user?.email || 'Voter',
       electionTitle: election.title,
       candidateName: selectedCandidate.name,
@@ -218,10 +218,7 @@ export default function VotePage() {
       txHash: voteResult.hash,
       blockNumber: voteResult.blockNumber,
       timestamp: new Date(),
-    });
-    
-    pdf.save(`vote-receipt-${voteResult.hash.slice(0, 10)}.pdf`);
-    toast.success('Vote receipt downloaded');
+    };
   };
 
   if (voteResult) {
@@ -263,10 +260,9 @@ export default function VotePage() {
               </div>
 
               <div className="space-y-3">
-                <Button className="w-full" onClick={downloadReceipt}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Vote Receipt (PDF)
-                </Button>
+                {getReceiptData() && (
+                  <VoteReceiptPreview data={getReceiptData()!} />
+                )}
                 <Button className="w-full" variant="outline" onClick={() => navigate(`/verify?hash=${voteResult.hash}`)}>
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Verify on Blockchain

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useVoters, useApproveVoter, useRejectVoter } from '@/hooks/useAdminData';
+import { BulkVoterImport } from '@/components/admin/BulkVoterImport';
 import { Search, CheckCircle, XCircle, Clock, Mail, Phone, Download, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -77,10 +78,13 @@ export default function AdminVoters() {
             <h1 className="text-2xl font-bold">Voter Management</h1>
             <p className="text-muted-foreground">Approve and manage registered voters</p>
           </div>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
+          <div className="flex items-center gap-2">
+            <BulkVoterImport />
+            <Button variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}

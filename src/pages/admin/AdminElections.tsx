@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useElectionsWithCandidates, ElectionWithCandidates } from '@/hooks/useElections';
 import { useCreateElection, useUpdateElectionStatus, useDeleteElection } from '@/hooks/useAdminData';
-import { Plus, Edit, Trash2, Play, Pause, Calendar, Users, Vote, Loader2, CheckCircle, Download, FileText, FileSpreadsheet } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Pause, Calendar, Users, Vote, Loader2, CheckCircle, Download, FileText, FileSpreadsheet, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { generateElectionResultsPDF, generateElectionResultsCSV, downloadCSV, ElectionResultData } from '@/lib/pdfUtils';
 import {
@@ -47,6 +47,9 @@ export default function AdminElections() {
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+  const [electionToComplete, setElectionToComplete] = useState<string | null>(null);
+  const [sendNotification, setSendNotification] = useState(true);
   const [electionToDelete, setElectionToDelete] = useState<string | null>(null);
   const [newElection, setNewElection] = useState({
     title: '',
@@ -89,10 +92,19 @@ export default function AdminElections() {
     }
   };
 
-  const completeElection = async (electionId: string) => {
+  const handleCompleteElection = async () => {
+    if (!electionToComplete) return;
     try {
-      await updateStatus.mutateAsync({ electionId, status: 'completed' });
-      toast.success('Election marked as completed');
+      await updateStatus.mutateAsync({ 
+        electionId: electionToComplete, 
+        status: 'completed',
+        sendNotification 
+      });
+      toast.success(sendNotification 
+        ? 'Election completed and notifications sent' 
+        : 'Election marked as completed');
+      setCompleteDialogOpen(false);
+      setElectionToComplete(null);
     } catch (error) {
       toast.error('Failed to complete election');
     }
@@ -309,7 +321,10 @@ export default function AdminElections() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => completeElection(election.id)}
+                                onClick={() => {
+                                  setElectionToComplete(election.id);
+                                  setCompleteDialogOpen(true);
+                                }}
                                 disabled={updateStatus.isPending}
                                 title="Complete Election"
                               >
@@ -365,6 +380,37 @@ export default function AdminElections() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Complete Election</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mark this election as completed. This will finalize the results.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sendNotification}
+                onChange={(e) => setSendNotification(e.target.checked)}
+                className="h-4 w-4 rounded border-border"
+              />
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">Send results notification to all voters</span>
+              </div>
+            </label>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCompleteElection}>
+              Complete Election
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

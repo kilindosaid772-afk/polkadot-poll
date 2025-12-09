@@ -221,13 +221,43 @@ export function useUpdateElectionStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ electionId, status }: { electionId: string; status: 'upcoming' | 'active' | 'completed' }) => {
+    mutationFn: async ({ electionId, status, sendNotification }: { 
+      electionId: string; 
+      status: 'upcoming' | 'active' | 'completed';
+      sendNotification?: boolean;
+    }) => {
+      // Get election title for notification
+      const { data: election, error: electionError } = await supabase
+        .from('elections')
+        .select('title')
+        .eq('id', electionId)
+        .single();
+
+      if (electionError) throw electionError;
+
       const { error } = await supabase
         .from('elections')
         .update({ status })
         .eq('id', electionId);
 
       if (error) throw error;
+
+      // Send results notification if election is completed
+      if (status === 'completed' && sendNotification && election) {
+        try {
+          const response = await supabase.functions.invoke('send-results-notification', {
+            body: { electionId, electionTitle: election.title },
+          });
+          
+          if (response.error) {
+            console.error('Failed to send results notification:', response.error);
+          } else {
+            console.log('Results notification sent:', response.data);
+          }
+        } catch (notificationError) {
+          console.error('Error sending results notification:', notificationError);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['elections'] });

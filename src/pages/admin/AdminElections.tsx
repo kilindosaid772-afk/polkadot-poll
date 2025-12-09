@@ -3,7 +3,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useElectionsWithCandidates, ElectionWithCandidates } from '@/hooks/useElections';
-import { useCreateElection, useUpdateElectionStatus, useDeleteElection } from '@/hooks/useAdminData';
+import { useCreateElection, useUpdateElectionStatus, useDeleteElection, useSendResultsNotification } from '@/hooks/useAdminData';
 import { Plus, Edit, Trash2, Play, Pause, Calendar, Users, Vote, Loader2, CheckCircle, Download, FileText, FileSpreadsheet, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { generateElectionResultsPDF, generateElectionResultsCSV, downloadCSV, ElectionResultData } from '@/lib/pdfUtils';
@@ -44,10 +44,14 @@ export default function AdminElections() {
   const createElection = useCreateElection();
   const updateStatus = useUpdateElectionStatus();
   const deleteElection = useDeleteElection();
+  const sendResultsNotification = useSendResultsNotification();
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+  const [resendDialogOpen, setResendDialogOpen] = useState(false);
+  const [electionToResend, setElectionToResend] = useState<{ id: string; title: string } | null>(null);
+  const [isResending, setIsResending] = useState(false);
   const [electionToComplete, setElectionToComplete] = useState<string | null>(null);
   const [sendNotification, setSendNotification] = useState(true);
   const [electionToDelete, setElectionToDelete] = useState<string | null>(null);
@@ -107,6 +111,24 @@ export default function AdminElections() {
       setElectionToComplete(null);
     } catch (error) {
       toast.error('Failed to complete election');
+    }
+  };
+
+  const handleResendNotification = async () => {
+    if (!electionToResend) return;
+    setIsResending(true);
+    try {
+      const result = await sendResultsNotification.mutateAsync({
+        electionId: electionToResend.id,
+        electionTitle: electionToResend.title,
+      });
+      toast.success(`Notifications sent to ${result.sent} voters`);
+      setResendDialogOpen(false);
+      setElectionToResend(null);
+    } catch (error) {
+      toast.error('Failed to send notifications');
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -333,6 +355,19 @@ export default function AdminElections() {
                             )}
                           </>
                         )}
+                        {election.status === 'completed' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setElectionToResend({ id: election.id, title: election.title });
+                              setResendDialogOpen(true);
+                            }}
+                            title="Resend Results Notification"
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -411,6 +446,33 @@ export default function AdminElections() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleCompleteElection}>
               Complete Election
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={resendDialogOpen} onOpenChange={setResendDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resend Results Notification</AlertDialogTitle>
+            <AlertDialogDescription>
+              Send the election results for "{electionToResend?.title}" to all approved voters via email.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleResendNotification} disabled={isResending}>
+              {isResending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send Notifications
+                </>
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

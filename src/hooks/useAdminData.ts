@@ -266,6 +266,22 @@ export function useUpdateElectionStatus() {
   });
 }
 
+export function useSendResultsNotification() {
+  return useMutation({
+    mutationFn: async ({ electionId, electionTitle }: { electionId: string; electionTitle: string }) => {
+      const response = await supabase.functions.invoke('send-results-notification', {
+        body: { electionId, electionTitle },
+      });
+      
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to send notifications');
+      }
+      
+      return response.data;
+    },
+  });
+}
+
 export function useDeleteElection() {
   const queryClient = useQueryClient();
 

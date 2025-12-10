@@ -76,6 +76,14 @@ serve(async (req) => {
 
     let successCount = 0;
     let failCount = 0;
+    const notificationLogs: Array<{
+      election_id: string;
+      recipient_email: string;
+      recipient_name: string | null;
+      notification_type: string;
+      status: string;
+      error_message: string | null;
+    }> = [];
 
     // Send emails to each voter
     for (const voter of voters) {
@@ -160,13 +168,51 @@ serve(async (req) => {
         if (response.ok) {
           successCount++;
           console.log(`Email sent to ${voter.email}`);
+          notificationLogs.push({
+            election_id: electionId,
+            recipient_email: voter.email,
+            recipient_name: voter.name,
+            notification_type: 'results',
+            status: 'sent',
+            error_message: null,
+          });
         } else {
+          const errorText = await response.text();
           failCount++;
-          console.error(`Failed to send to ${voter.email}:`, await response.text());
+          console.error(`Failed to send to ${voter.email}:`, errorText);
+          notificationLogs.push({
+            election_id: electionId,
+            recipient_email: voter.email,
+            recipient_name: voter.name,
+            notification_type: 'results',
+            status: 'failed',
+            error_message: errorText,
+          });
         }
-      } catch (emailError) {
+      } catch (emailError: any) {
         failCount++;
         console.error(`Error sending to ${voter.email}:`, emailError);
+        notificationLogs.push({
+          election_id: electionId,
+          recipient_email: voter.email,
+          recipient_name: voter.name,
+          notification_type: 'results',
+          status: 'failed',
+          error_message: emailError.message || 'Unknown error',
+        });
+      }
+    }
+
+    // Insert notification logs into database
+    if (notificationLogs.length > 0) {
+      const { error: logError } = await supabase
+        .from('notification_logs')
+        .insert(notificationLogs);
+      
+      if (logError) {
+        console.error('Failed to save notification logs:', logError);
+      } else {
+        console.log(`Saved ${notificationLogs.length} notification logs`);
       }
     }
 

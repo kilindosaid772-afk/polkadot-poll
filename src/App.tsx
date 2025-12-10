@@ -15,6 +15,7 @@ import VotePage from "./pages/VotePage";
 import Verify from "./pages/Verify";
 import Explorer from "./pages/Explorer";
 import Results from "./pages/Results";
+import CompareElections from "./pages/CompareElections";
 import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/explorer" element={<Explorer />} />
             <Route path="/results/:electionId" element={<Results />} />
             <Route path="/results" element={<Results />} />
+            <Route path="/compare" element={<CompareElections />} />
 
             {/* Voter Routes - Protected */}
             <Route path="/voter" element={

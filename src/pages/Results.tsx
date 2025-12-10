@@ -1,13 +1,15 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { CandidateCard } from '@/components/shared/CandidateCard';
 import { AnimatedVoteCount } from '@/components/shared/AnimatedVoteCount';
+import { CircularProgress } from '@/components/shared/CircularProgress';
 import { useElection, useElections } from '@/hooks/useElections';
+import { useApprovedVoterCount } from '@/hooks/useVoterCount';
 import { useRealtimeElection } from '@/hooks/useRealtimeElection';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Trophy, Users, Vote, TrendingUp, Loader2, Radio } from 'lucide-react';
+import { Trophy, Users, Vote, TrendingUp, Loader2, Radio, GitCompare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const COLORS = ['hsl(199, 89%, 48%)', 'hsl(262, 83%, 58%)', 'hsl(142, 76%, 36%)', 'hsl(38, 92%, 50%)'];
@@ -21,6 +23,7 @@ export default function Results() {
   const defaultElectionId = electionId || elections?.find(e => e.status === 'completed' || e.status === 'active')?.id;
   
   const { data: election, isLoading, error } = useElection(defaultElectionId || '');
+  const { data: totalApprovedVoters } = useApprovedVoterCount();
   
   // Enable realtime updates for this election
   useRealtimeElection(defaultElectionId);
@@ -91,22 +94,30 @@ export default function Results() {
       
       <main className="flex-1 py-12">
         <div className="container">
-          <div className="mb-12">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold">
-                <span className="gradient-text">Election Results</span>
-              </h1>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-12">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-3xl font-bold">
+                  <span className="gradient-text">Election Results</span>
+                </h1>
+                {election.status === 'active' && (
+                  <Badge className="bg-success/10 text-success border-success/20 animate-pulse">
+                    <Radio className="h-3 w-3 mr-1" />
+                    Live
+                  </Badge>
+                )}
+              </div>
+              <p className="text-lg text-muted-foreground">{election.title}</p>
               {election.status === 'active' && (
-                <Badge className="bg-success/10 text-success border-success/20 animate-pulse">
-                  <Radio className="h-3 w-3 mr-1" />
-                  Live
-                </Badge>
+                <p className="text-sm text-success mt-1">Results update in real-time as votes are cast</p>
               )}
             </div>
-            <p className="text-lg text-muted-foreground">{election.title}</p>
-            {election.status === 'active' && (
-              <p className="text-sm text-success mt-1">Results update in real-time as votes are cast</p>
-            )}
+            <Link to="/compare">
+              <Button variant="outline" className="gap-2">
+                <GitCompare className="h-4 w-4" />
+                Compare Elections
+              </Button>
+            </Link>
           </div>
 
           {/* Winner Banner */}
@@ -133,58 +144,73 @@ export default function Results() {
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Vote className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Votes</p>
-                  <p className="text-lg font-bold">
-                    <AnimatedVoteCount value={totalVotes} />
-                  </p>
-                </div>
-              </div>
+          {/* Voter Turnout and Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+            {/* Voter Turnout Circular Progress */}
+            <div className="md:col-span-1 rounded-xl border border-border bg-card p-4 flex flex-col items-center justify-center">
+              <CircularProgress
+                value={totalVotes}
+                maxValue={totalApprovedVoters || 100}
+                size={100}
+                strokeWidth={8}
+                label="Turnout"
+                sublabel={`${totalVotes}/${totalApprovedVoters || 0}`}
+              />
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-accent" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Candidates</p>
-                  <p className="text-lg font-bold">{election.candidates.length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Status</p>
-                  <p className="text-lg font-bold capitalize">{election.status}</p>
+            {/* Stats Grid */}
+            <div className="md:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Vote className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Votes</p>
+                    <p className="text-lg font-bold">
+                      <AnimatedVoteCount value={totalVotes} />
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                  <Trophy className="h-5 w-5 text-warning" />
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                    <Users className="h-5 w-5 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Candidates</p>
+                    <p className="text-lg font-bold">{election.candidates.length}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Margin</p>
-                  <p className="text-lg font-bold">
-                    {sortedCandidates.length > 1 
-                      ? <AnimatedVoteCount value={sortedCandidates[0].vote_count - sortedCandidates[1].vote_count} />
-                      : 'N/A'}
-                  </p>
+              </div>
+
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-success" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <p className="text-lg font-bold capitalize">{election.status}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                    <Trophy className="h-5 w-5 text-warning" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Margin</p>
+                    <p className="text-lg font-bold">
+                      {sortedCandidates.length > 1 
+                        ? <AnimatedVoteCount value={sortedCandidates[0].vote_count - sortedCandidates[1].vote_count} />
+                        : 'N/A'}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

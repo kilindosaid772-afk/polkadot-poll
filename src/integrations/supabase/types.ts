@@ -121,6 +121,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_logs: {
+        Row: {
+          election_id: string
+          error_message: string | null
+          id: string
+          notification_type: string
+          recipient_email: string
+          recipient_name: string | null
+          sent_at: string
+          status: string
+        }
+        Insert: {
+          election_id: string
+          error_message?: string | null
+          id?: string
+          notification_type?: string
+          recipient_email: string
+          recipient_name?: string | null
+          sent_at?: string
+          status?: string
+        }
+        Update: {
+          election_id?: string
+          error_message?: string | null
+          id?: string
+          notification_type?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          sent_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

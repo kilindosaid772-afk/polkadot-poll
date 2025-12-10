@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useElectionsWithCandidates, ElectionWithCandidates } from '@/hooks/useElections';
 import { useCreateElection, useUpdateElectionStatus, useDeleteElection, useSendResultsNotification } from '@/hooks/useAdminData';
+import { NotificationHistoryLog } from '@/components/admin/NotificationHistoryLog';
 import { Plus, Edit, Trash2, Play, Pause, Calendar, Users, Vote, Loader2, CheckCircle, Download, FileText, FileSpreadsheet, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { generateElectionResultsPDF, generateElectionResultsCSV, downloadCSV, ElectionResultData } from '@/lib/pdfUtils';
@@ -400,6 +401,9 @@ export default function AdminElections() {
             </div>
           )}
         </div>
+
+        {/* Notification History */}
+        <NotificationHistoryLog />
       </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

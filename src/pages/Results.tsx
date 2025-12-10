@@ -3,6 +3,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { CandidateCard } from '@/components/shared/CandidateCard';
+import { AnimatedVoteCount } from '@/components/shared/AnimatedVoteCount';
 import { useElection, useElections } from '@/hooks/useElections';
 import { useRealtimeElection } from '@/hooks/useRealtimeElection';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -126,7 +127,7 @@ export default function Results() {
                 <h2 className="text-2xl font-bold">{winner.name}</h2>
                 <p className="text-muted-foreground">{winner.party}</p>
                 <p className="text-lg font-semibold mt-2">
-                  {winner.vote_count.toLocaleString()} votes ({totalVotes > 0 ? ((winner.vote_count / totalVotes) * 100).toFixed(1) : 0}%)
+                  <AnimatedVoteCount value={winner.vote_count} /> votes ({totalVotes > 0 ? ((winner.vote_count / totalVotes) * 100).toFixed(1) : 0}%)
                 </p>
               </div>
             </div>
@@ -141,7 +142,9 @@ export default function Results() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Votes</p>
-                  <p className="text-lg font-bold">{totalVotes.toLocaleString()}</p>
+                  <p className="text-lg font-bold">
+                    <AnimatedVoteCount value={totalVotes} />
+                  </p>
                 </div>
               </div>
             </div>
@@ -179,7 +182,7 @@ export default function Results() {
                   <p className="text-sm text-muted-foreground">Margin</p>
                   <p className="text-lg font-bold">
                     {sortedCandidates.length > 1 
-                      ? (sortedCandidates[0].vote_count - sortedCandidates[1].vote_count).toLocaleString()
+                      ? <AnimatedVoteCount value={sortedCandidates[0].vote_count - sortedCandidates[1].vote_count} />
                       : 'N/A'}
                   </p>
                 </div>

@@ -308,3 +308,65 @@ export function useDeleteElection() {
     },
   });
 }
+
+export function useSendTurnoutAlert() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      electionId, 
+      electionTitle, 
+      turnoutPercentage, 
+      threshold 
+    }: { 
+      electionId: string; 
+      electionTitle: string; 
+      turnoutPercentage: number;
+      threshold: number;
+    }) => {
+      const response = await supabase.functions.invoke('send-turnout-alert', {
+        body: { electionId, electionTitle, turnoutPercentage, threshold },
+      });
+      
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to send turnout alert');
+      }
+      
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notificationLogs'] });
+    },
+  });
+}
+
+export function useSendDeadlineReminder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      electionId, 
+      electionTitle, 
+      endDate, 
+      hoursRemaining 
+    }: { 
+      electionId: string; 
+      electionTitle: string; 
+      endDate: string;
+      hoursRemaining: number;
+    }) => {
+      const response = await supabase.functions.invoke('send-deadline-reminder', {
+        body: { electionId, electionTitle, endDate, hoursRemaining },
+      });
+      
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to send deadline reminder');
+      }
+      
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notificationLogs'] });
+    },
+  });
+}

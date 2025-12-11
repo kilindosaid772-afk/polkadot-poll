@@ -3,9 +3,9 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useElectionsWithCandidates, ElectionWithCandidates } from '@/hooks/useElections';
-import { useCreateElection, useUpdateElectionStatus, useDeleteElection, useSendResultsNotification } from '@/hooks/useAdminData';
+import { useCreateElection, useUpdateElectionStatus, useDeleteElection, useSendResultsNotification, useSendTurnoutAlert, useSendDeadlineReminder } from '@/hooks/useAdminData';
 import { NotificationHistoryLog } from '@/components/admin/NotificationHistoryLog';
-import { Plus, Edit, Trash2, Play, Pause, Calendar, Users, Vote, Loader2, CheckCircle, Download, FileText, FileSpreadsheet, Mail } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Pause, Calendar, Users, Vote, Loader2, CheckCircle, Download, FileText, FileSpreadsheet, Mail, AlertTriangle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { generateElectionResultsPDF, generateElectionResultsCSV, downloadCSV, ElectionResultData } from '@/lib/pdfUtils';
 import {
@@ -46,13 +46,23 @@ export default function AdminElections() {
   const updateStatus = useUpdateElectionStatus();
   const deleteElection = useDeleteElection();
   const sendResultsNotification = useSendResultsNotification();
+  const sendTurnoutAlert = useSendTurnoutAlert();
+  const sendDeadlineReminder = useSendDeadlineReminder();
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [resendDialogOpen, setResendDialogOpen] = useState(false);
+  const [turnoutAlertDialogOpen, setTurnoutAlertDialogOpen] = useState(false);
+  const [deadlineReminderDialogOpen, setDeadlineReminderDialogOpen] = useState(false);
   const [electionToResend, setElectionToResend] = useState<{ id: string; title: string } | null>(null);
+  const [electionForAlert, setElectionForAlert] = useState<ElectionWithCandidates | null>(null);
+  const [electionForReminder, setElectionForReminder] = useState<ElectionWithCandidates | null>(null);
+  const [turnoutThreshold, setTurnoutThreshold] = useState(50);
+  const [hoursRemaining, setHoursRemaining] = useState(24);
   const [isResending, setIsResending] = useState(false);
+  const [isSendingAlert, setIsSendingAlert] = useState(false);
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
   const [electionToComplete, setElectionToComplete] = useState<string | null>(null);
   const [sendNotification, setSendNotification] = useState(true);
   const [electionToDelete, setElectionToDelete] = useState<string | null>(null);
@@ -142,6 +152,49 @@ export default function AdminElections() {
       setElectionToDelete(null);
     } catch (error) {
       toast.error('Failed to delete election');
+    }
+  };
+
+  const handleSendTurnoutAlert = async () => {
+    if (!electionForAlert) return;
+    setIsSendingAlert(true);
+    try {
+      const candidates = electionForAlert.candidates || [];
+      const totalVotes = candidates.reduce((sum, c) => sum + (c.vote_count || 0), 0);
+      // Estimate turnout - this is approximate since we may not have total eligible voters
+      const result = await sendTurnoutAlert.mutateAsync({
+        electionId: electionForAlert.id,
+        electionTitle: electionForAlert.title,
+        turnoutPercentage: totalVotes > 0 ? (totalVotes / 100) * turnoutThreshold : 0,
+        threshold: turnoutThreshold,
+      });
+      toast.success(`Turnout alert sent to ${result.sent} administrators`);
+      setTurnoutAlertDialogOpen(false);
+      setElectionForAlert(null);
+    } catch (error) {
+      toast.error('Failed to send turnout alert');
+    } finally {
+      setIsSendingAlert(false);
+    }
+  };
+
+  const handleSendDeadlineReminder = async () => {
+    if (!electionForReminder) return;
+    setIsSendingReminder(true);
+    try {
+      const result = await sendDeadlineReminder.mutateAsync({
+        electionId: electionForReminder.id,
+        electionTitle: electionForReminder.title,
+        endDate: electionForReminder.end_date,
+        hoursRemaining,
+      });
+      toast.success(`Deadline reminders sent to ${result.sent} voters`);
+      setDeadlineReminderDialogOpen(false);
+      setElectionForReminder(null);
+    } catch (error) {
+      toast.error('Failed to send deadline reminders');
+    } finally {
+      setIsSendingReminder(false);
     }
   };
 
@@ -341,18 +394,42 @@ export default function AdminElections() {
                               )}
                             </Button>
                             {election.status === 'active' && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  setElectionToComplete(election.id);
-                                  setCompleteDialogOpen(true);
-                                }}
-                                disabled={updateStatus.isPending}
-                                title="Complete Election"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setElectionToComplete(election.id);
+                                    setCompleteDialogOpen(true);
+                                  }}
+                                  disabled={updateStatus.isPending}
+                                  title="Complete Election"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setElectionForAlert(election);
+                                    setTurnoutAlertDialogOpen(true);
+                                  }}
+                                  title="Send Low Turnout Alert"
+                                >
+                                  <AlertTriangle className="h-4 w-4 text-warning" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setElectionForReminder(election);
+                                    setDeadlineReminderDialogOpen(true);
+                                  }}
+                                  title="Send Deadline Reminder"
+                                >
+                                  <Clock className="h-4 w-4 text-primary" />
+                                </Button>
+                              </>
                             )}
                           </>
                         )}
@@ -475,6 +552,88 @@ export default function AdminElections() {
                 <>
                   <Mail className="h-4 w-4 mr-2" />
                   Send Notifications
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={turnoutAlertDialogOpen} onOpenChange={setTurnoutAlertDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send Low Turnout Alert</AlertDialogTitle>
+            <AlertDialogDescription>
+              Send an alert to all administrators about low voter turnout for "{electionForAlert?.title}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="threshold">Turnout Threshold (%)</Label>
+              <Input
+                id="threshold"
+                type="number"
+                min="1"
+                max="100"
+                value={turnoutThreshold}
+                onChange={(e) => setTurnoutThreshold(Number(e.target.value))}
+              />
+              <p className="text-xs text-muted-foreground">Alert will indicate turnout is below this percentage</p>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSendingAlert}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSendTurnoutAlert} disabled={isSendingAlert}>
+              {isSendingAlert ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Send Alert
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deadlineReminderDialogOpen} onOpenChange={setDeadlineReminderDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send Deadline Reminder</AlertDialogTitle>
+            <AlertDialogDescription>
+              Send a reminder to all approved voters who haven't voted yet for "{electionForReminder?.title}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="hours">Hours Remaining</Label>
+              <Input
+                id="hours"
+                type="number"
+                min="1"
+                max="168"
+                value={hoursRemaining}
+                onChange={(e) => setHoursRemaining(Number(e.target.value))}
+              />
+              <p className="text-xs text-muted-foreground">Displayed in the reminder email to voters</p>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSendingReminder}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSendDeadlineReminder} disabled={isSendingReminder}>
+              {isSendingReminder ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Clock className="h-4 w-4 mr-2" />
+                  Send Reminders
                 </>
               )}
             </AlertDialogAction>

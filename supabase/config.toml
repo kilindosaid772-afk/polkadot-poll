@@ -36,3 +36,9 @@ verify_jwt = false
 
 [functions.send-results-notification]
 verify_jwt = true
+
+[functions.send-turnout-alert]
+verify_jwt = true
+
+[functions.send-deadline-reminder]
+verify_jwt = true

@@ -1,13 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Vote, Users, UserCheck, 
-  Settings, FileText, Box, LogOut, BarChart3
+  Settings, FileText, Box, LogOut, BarChart3, Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
+  { icon: Activity, label: 'Monitoring', path: '/admin/monitoring' },
   { icon: Vote, label: 'Elections', path: '/admin/elections' },
   { icon: Users, label: 'Candidates', path: '/admin/candidates' },
   { icon: UserCheck, label: 'Voters', path: '/admin/voters' },

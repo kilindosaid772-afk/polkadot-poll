@@ -30,6 +30,7 @@ import AdminCandidates from "./pages/admin/AdminCandidates";
 import AdminBlockchain from "./pages/admin/AdminBlockchain";
 import AdminAudit from "./pages/admin/AdminAudit";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import AdminMonitoring from "./pages/admin/AdminMonitoring";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,11 @@ const App = () => (
             <Route path="/admin" element={
               <ProtectedRoute requireAdmin>
                 <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/monitoring" element={
+              <ProtectedRoute requireAdmin>
+                <AdminMonitoring />
               </ProtectedRoute>
             } />
             <Route path="/admin/elections" element={

@@ -4,11 +4,11 @@ import { CircularProgress } from '@/components/shared/CircularProgress';
 import { StatsCard } from '@/components/shared/StatsCard';
 import { useElections } from '@/hooks/useElections';
 import { useApprovedVoterCount } from '@/hooks/useVoterCount';
-import { useSendTurnoutAlert, useSendDeadlineReminder } from '@/hooks/useAdminData';
+import { useSendTurnoutAlert, useSendDeadlineReminder, useSendSMSNotification } from '@/hooks/useAdminData';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Activity, Users, Vote, Clock, AlertTriangle, Bell, 
-  TrendingUp, TrendingDown, RefreshCw, Loader2 
+  TrendingUp, TrendingDown, RefreshCw, Loader2, MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,7 @@ export default function AdminMonitoring() {
   const { data: voterCount, isLoading: voterCountLoading } = useApprovedVoterCount();
   const sendTurnoutAlert = useSendTurnoutAlert();
   const sendDeadlineReminder = useSendDeadlineReminder();
+  const sendSMSNotification = useSendSMSNotification();
   
   const [alertThreshold, setAlertThreshold] = useState(30);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -112,6 +113,35 @@ export default function AdminMonitoring() {
       toast.success('Deadline reminders sent to voters');
     } catch (error) {
       toast.error('Failed to send reminders');
+    }
+  };
+
+  const handleSendSMSReminder = async (election: any, hoursRemaining: number) => {
+    try {
+      await sendSMSNotification.mutateAsync({
+        electionId: election.id,
+        electionTitle: election.title,
+        notificationType: 'deadline_reminder',
+        hoursRemaining,
+      });
+      toast.success('SMS reminders sent to voters');
+    } catch (error) {
+      toast.error('Failed to send SMS reminders');
+    }
+  };
+
+  const handleSendSMSAlert = async (election: any, turnoutPercent: number) => {
+    try {
+      await sendSMSNotification.mutateAsync({
+        electionId: election.id,
+        electionTitle: election.title,
+        notificationType: 'turnout_alert',
+        turnoutPercentage: turnoutPercent,
+        threshold: alertThreshold,
+      });
+      toast.success('SMS alert sent to administrators');
+    } catch (error) {
+      toast.error('Failed to send SMS alert');
     }
   };
 
@@ -238,7 +268,7 @@ export default function AdminMonitoring() {
                           Ends {formatDistanceToNow(new Date(election.end_date), { addSuffix: true })}
                         </p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           size="sm"
                           variant="outline"
@@ -246,18 +276,38 @@ export default function AdminMonitoring() {
                           disabled={sendDeadlineReminder.isPending}
                         >
                           <Bell className="h-4 w-4 mr-1" />
-                          Send Reminders
+                          Email Reminders
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSendSMSReminder(election, hoursRemaining)}
+                          disabled={sendSMSNotification.isPending}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-1" />
+                          SMS Reminders
                         </Button>
                         {turnoutPercent < alertThreshold && (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleSendAlert(election, turnoutPercent)}
-                            disabled={sendTurnoutAlert.isPending}
-                          >
-                            <AlertTriangle className="h-4 w-4 mr-1" />
-                            Alert Admins
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleSendAlert(election, turnoutPercent)}
+                              disabled={sendTurnoutAlert.isPending}
+                            >
+                              <AlertTriangle className="h-4 w-4 mr-1" />
+                              Email Alert
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => handleSendSMSAlert(election, turnoutPercent)}
+                              disabled={sendSMSNotification.isPending}
+                            >
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              SMS Alert
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>

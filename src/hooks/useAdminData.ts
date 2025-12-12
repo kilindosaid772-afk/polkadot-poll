@@ -370,3 +370,39 @@ export function useSendDeadlineReminder() {
     },
   });
 }
+
+export function useSendSMSNotification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      electionId, 
+      electionTitle, 
+      notificationType,
+      hoursRemaining,
+      turnoutPercentage,
+      threshold
+    }: { 
+      electionId: string; 
+      electionTitle: string; 
+      notificationType: 'deadline_reminder' | 'turnout_alert' | 'results';
+      hoursRemaining?: number;
+      turnoutPercentage?: number;
+      threshold?: number;
+    }) => {
+      const response = await supabase.functions.invoke('send-sms-notification', {
+        body: { electionId, electionTitle, notificationType, hoursRemaining, turnoutPercentage, threshold },
+      });
+      
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to send SMS notification');
+      }
+      
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notificationLogs'] });
+      queryClient.invalidateQueries({ queryKey: ['all-notification-logs'] });
+    },
+  });
+}

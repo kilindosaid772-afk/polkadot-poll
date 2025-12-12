@@ -31,6 +31,8 @@ import AdminBlockchain from "./pages/admin/AdminBlockchain";
 import AdminAudit from "./pages/admin/AdminAudit";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminMonitoring from "./pages/admin/AdminMonitoring";
+import AdminNotifications from "./pages/admin/AdminNotifications";
+import AdminEngagement from "./pages/admin/AdminEngagement";
 
 const queryClient = new QueryClient();
 
@@ -101,6 +103,16 @@ const App = () => (
             <Route path="/admin/audit" element={
               <ProtectedRoute requireAdmin>
                 <AdminAudit />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/notifications" element={
+              <ProtectedRoute requireAdmin>
+                <AdminNotifications />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/engagement" element={
+              <ProtectedRoute requireAdmin>
+                <AdminEngagement />
               </ProtectedRoute>
             } />
 

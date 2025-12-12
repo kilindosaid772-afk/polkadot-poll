@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Vote, Users, UserCheck, 
-  Settings, FileText, Box, LogOut, BarChart3, Activity
+  FileText, Box, LogOut, BarChart3, Activity, Bell, TrendingUp
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +13,8 @@ const navItems = [
   { icon: Users, label: 'Candidates', path: '/admin/candidates' },
   { icon: UserCheck, label: 'Voters', path: '/admin/voters' },
   { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
+  { icon: TrendingUp, label: 'Engagement', path: '/admin/engagement' },
+  { icon: Bell, label: 'Notifications', path: '/admin/notifications' },
   { icon: Box, label: 'Blockchain', path: '/admin/blockchain' },
   { icon: FileText, label: 'Audit Logs', path: '/admin/audit' },
 ];
